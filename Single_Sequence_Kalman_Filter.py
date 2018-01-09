@@ -5,7 +5,7 @@ import numpy as np
 import math
 from numpy.random import multivariate_normal
 from scipy import linalg
-from utils import log_multivariate_normal_density
+from Utils import log_multivariate_normal_density
 
 class SSKF:
     

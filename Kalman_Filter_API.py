@@ -1,4 +1,4 @@
-from utils import get_dimension, get_control_dimension
+from Utils import get_dimension, get_control_dimension
 from EM_Config import EM_Config
 from Multiple_Sequence_Kalman_Filter import MSKF
 from Single_Sequence_Kalman_Filter import SSKF
@@ -63,8 +63,8 @@ def calculate_log_likelihood(X, U, parameters):
         parameters: z_0_hat, P_0_hat, A, B, Q, R
     # Returns
         predicted: predicted values at each time step;
-                    it is a dictionary with entries 'mean'/'covariance';
-                    the values of the dictionary is a 2D array (seq_count * seq_length) of numpy array
+            it is a dictionary with entries 'mean'/'covariance';
+            the values of the dictionary is a 2D array (seq_count * seq_length) of numpy array
         filtered: filtered values at each time step
         smoothed: smoothed values (the expectation) at each time step
 '''
