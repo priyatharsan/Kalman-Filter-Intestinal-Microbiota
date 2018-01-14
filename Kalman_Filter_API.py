@@ -15,6 +15,7 @@ from EM_Config import EM_Config
 from Multiple_Sequence_Kalman_Filter import MSKF
 from Single_Sequence_Kalman_Filter import SSKF
 
+
 def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10):
     """
     Finding the 'best' parameters using the Expectation Maximization algorithm
@@ -70,6 +71,7 @@ def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10)
 
     return parameters, ll_history
 
+
 def calculate_log_likelihood(X, U, parameters):
     """
     Calculate the log likelihood per data point given the parameters
@@ -105,8 +107,9 @@ def calculate_log_likelihood(X, U, parameters):
     dimension, control_dimension = get_dimension(X), get_control_dimension(U)
     mskf = MSKF(dimension, control_dimension, z_0_hat, P_0_hat, A, B, Q, R)
     mskf.pass_in_measurement_and_control(X, U)
-    
+
     return mskf.log_likelihood()
+
 
 def infer(X, U, parameters):
     """
@@ -156,10 +159,11 @@ def infer(X, U, parameters):
     dimension, control_dimension = get_dimension(X), get_control_dimension(U)
     mskf = MSKF(dimension, control_dimension, z_0_hat, P_0_hat, A, B, Q, R)
     mskf.pass_in_measurement_and_control(X, U)
-    
+
     # estimate
     predicted, filtered, smoothed = mskf.estimate()
     return predicted, filtered, smoothed
+
 
 def simulate(U, parameters):
     """
@@ -195,7 +199,7 @@ def simulate(U, parameters):
     dimension, control_dimension = B.shape
     sskf = SSKF(dimension, control_dimension, z_0_hat, P_0_hat, A, B, Q, R)
     Z, X = [], []
-    
+
     # simulate
     for u in U:
         zs, xs = sskf.simulate(u)

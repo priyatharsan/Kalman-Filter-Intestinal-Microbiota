@@ -15,6 +15,7 @@ from numpy.random import multivariate_normal
 from scipy import linalg
 from Utils import log_multivariate_normal_density
 
+
 class SSKF:
     """
     Implement the single sequence Kalman Filter class
@@ -64,21 +65,21 @@ class SSKF:
         # setting the X and U
         self.X = measurements
         self.U = controls
-        
+
         # checking the dimensions of X
         for x in self.X:
             if x is not None:
-                assert(x.shape[0] == self.dimension)
-    
+                assert (x.shape[0] == self.dimension)
+
         # checking the dimensions of U
         for u in self.U:
-            assert(u.shape[0] == self.control_dimension)
-        
+            assert (u.shape[0] == self.control_dimension)
+
         # setting the length of the sequence
         # assert control and measurements have equal length
         self.seq_length = len(self.X)
-        assert(len(self.U) == self.seq_length)
-        
+        assert (len(self.U) == self.seq_length)
+
         # number of measurements in X (not None/missing)
         self.n_obs = sum([1 if x is not None else 0 for x in self.X])
 
@@ -100,13 +101,13 @@ class SSKF:
         """
         simulated_seq_length = len(controls)
         simulated_Z, simulated_X = [], []
-        
+
         # initial Z and initial X
         cur_Z = multivariate_normal(self.z_0_hat, self.P_0_hat)
         simulated_Z.append(cur_Z)
         cur_X = multivariate_normal(cur_Z, self.R)
         simulated_X.append(cur_X)
-        
+
         # evolution step based on Kalman Filter model
         for time_step in range(simulated_seq_length - 1):
             cur_Z = multivariate_normal(self.A.dot(cur_Z) + self.B.dot(controls[time_step]), self.Q)
@@ -158,10 +159,10 @@ class SSKF:
         # define simpler names for variables
         z_t_t_array, P_t_t_array, K_tp1, z_tp1_t_array, P_tp1_t_array = \
             self.z_t_t_array, self.P_t_t_array, self.K_tp1, self.z_tp1_t_array, self.P_tp1_t_array
-        
+
         # forward filtering step begins
         for time_step in range(self.seq_length):
-            
+
             # filtered values
             z_t_t, P_t_t = None, None
             if X_prime[time_step] is not None:
@@ -170,27 +171,27 @@ class SSKF:
                 z_t_t = (z_tp1_t_array[time_step]
                          + K_tp1[time_step].dot(X_prime[time_step] - z_tp1_t_array[time_step]))
                 P_t_t = P_tp1_t_array[time_step] - K_tp1[time_step].dot(P_tp1_t_array[time_step])
-            
+
             # if data is missing, then the filtered mean/covariance is the same as the predicted ones
             else:
                 K_tp1.append(np.zeros((self.dimension, self.dimension)))
                 z_t_t = np.copy(z_tp1_t_array[time_step])
                 P_t_t = np.copy(P_tp1_t_array[time_step])
-            
+
             z_t_t_array.append(z_t_t)
             P_t_t_array.append(P_t_t)
-            
+
             # predicted values
             if (time_step < self.seq_length - 1):
                 z_tp1_t = A.dot(z_t_t_array[time_step])
                 P_tp1_t = A.dot((P_t_t_array[time_step]).dot(A.T)) + self.Q
                 z_tp1_t_array.append(z_tp1_t)
                 P_tp1_t_array.append(P_tp1_t)
-        
+
         # add the offset back
         self.predicted_Z = [(self.O[i] + z_tp1_t_array[i]) for i in range(self.seq_length)]
         self.filtered_Z = [(self.O[i] + z_t_t_array[i]) for i in range(self.seq_length)]
-        
+
         self.predicted_P = P_tp1_t_array
         self.predicted = {'mean': self.predicted_Z, 'covariance': self.predicted_P}
         self.filtered_P = P_t_t_array
@@ -205,7 +206,7 @@ class SSKF:
         self.z_t_T_array, self.P_t_T_array, self.L_t_array = [self.z_t_t_array[-1]], [self.P_t_t_array[-1]], []
         # define simpler names in this function
         A, B, U, X = self.A, self.B, self.U, self.X
-        
+
         # smoothing starts
         for _ in range(self.seq_length - 1):
             time_step = self.seq_length - _ - 2
@@ -256,7 +257,7 @@ class SSKF:
                                             np.outer(self.U[i], self.smoothed_Z[i + 1])))
                             for i in range(self.seq_length - 1)])
         self.zutzut = np.zeros((self.dimension + self.control_dimension, self.dimension + self.control_dimension))
-        
+
         for i in range(self.seq_length - 1):
             # pad the covariance term with 0 to so that dimension matches
             # covar(u, z) and covar (u, u) are 0, since u is constant
@@ -271,12 +272,12 @@ class SSKF:
         Prepare the variables needed to maximize over Q for multiple sequences
         """
         self.state_cov = sum([(np.outer(
-                                        self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]),
-                                        self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]))
-                                        + self.A.dot(self.covtt[i]).dot(self.A.T)
-                                        + self.covtt[i + 1]
-                                        - self.A.dot(self.covttp1[i])
-                                        - self.A.dot(self.covttp1[i]).T) for i in range(self.seq_length - 1)])
+            self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]),
+            self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]))
+                               + self.A.dot(self.covtt[i]).dot(self.A.T)
+                               + self.covtt[i + 1]
+                               - self.A.dot(self.covttp1[i])
+                               - self.A.dot(self.covttp1[i]).T) for i in range(self.seq_length - 1)])
         return self.state_cov
 
     def prepare_R(self):
@@ -310,12 +311,12 @@ class SSKF:
             predicted_covariance = self.predicted_P[time_step] + self.R
             if self.X[time_step] is not None:
                 log_prob = log_multivariate_normal_density(
-                                                    self.X[time_step],
-                                                    predicted_mean,
-                                                    predicted_covariance
-                                                    )
+                    self.X[time_step],
+                    predicted_mean,
+                    predicted_covariance
+                )
                 seq_log_prob += log_prob
-    
+
         if normalize:
             return seq_log_prob / self.n_obs
         return seq_log_prob

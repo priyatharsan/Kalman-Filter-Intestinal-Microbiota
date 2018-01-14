@@ -14,6 +14,7 @@ v) selecting specific events (e.g. antibiotic administration, bacteremia, etc)
 
 import numpy as np
 
+
 def map_name_to_genus(s):
     """
     Map a complete name of a bacteria to its genus name; default clustering method of read_otu_table
@@ -30,6 +31,7 @@ def map_name_to_genus(s):
         <Genus>
     """
     return s.split(";")[-1]
+
 
 def read_otu_table(file_name, cluster_method=map_name_to_genus):
     """
@@ -60,47 +62,47 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
         relative to the reference date
     """
     in_file = open(file_name, 'r')
-    
+
     # initialize the variables
     line_count, bacteria2idx = 0, {}
-    
+
     # read the file
     for line in in_file:
         tokens = line.split('\t')
-        
+
         # read the patient id
         if line_count == 0:
-            assert(tokens[0] == 'patientId')
+            assert (tokens[0] == 'patientId')
             patientId = tokens[1:]
-            
+
             # patientId starts from 1 in the file
             # starts from 0 in this program
             patientId = [int(pid) - 1 for pid in patientId]
-        
+
         # read the time
         elif line_count == 1:
-            assert[tokens[0][:4] == 'time']
+            assert [tokens[0][:4] == 'time']
             time = [int(t) for t in tokens[1:]]
-            assert(len(time) == len(patientId))
+            assert (len(time) == len(patientId))
             X, idx2patient_date, id2start_date, id2end_date = initialize_X(patientId, time)
-        
+
         # read the bacteria counts
         else:
             bacteria_name = tokens[0]
             new_bacteria = False
             key = cluster_method(bacteria_name)
-            
+
             # add all "None" bacteria to "OTHER" cluster
             if key is None:
                 key = 'OTHER'
-            
+
             # create new cluster
             if bacteria2idx.get(key) is None:
                 bacteria2idx[key] = len(bacteria2idx)
                 new_bacteria = True
             bacteria_idx = bacteria2idx[key]
             bacteria_counts = tokens[1:]
-            
+
             # read in the bacteria counts and add/create new entry for each array (corresponding to)
             # one measurement
             for idx in range(len(patientId)):
@@ -108,22 +110,23 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
                 bacteria_count = int(bacteria_counts[idx])
                 if new_bacteria:
                     X[pId][time_idx].append(bacteria_count)
-                    assert(len(X[pId][time_idx]) == len(bacteria2idx))
+                    assert (len(X[pId][time_idx]) == len(bacteria2idx))
                 else:
                     X[pId][time_idx][bacteria_idx] += bacteria_count
 
         line_count += 1
-    
+
     # make each of the measurement array a numpy array
     X = [[(np.array(x) if x is not None else x) for x in xs] for xs in X]
-    
+
     # close the reading io file
     in_file.close()
-    
+
     # map the dimension of a numpy array (for one measurement) to its corresponding bacteria cluster name
     idx2bacteria = dict([(bacteria2idx[key], key) for key in bacteria2idx])
-    
+
     return X, bacteria2idx, idx2bacteria, id2start_date, id2end_date
+
 
 def initialize_X(patientId, time):
     """
@@ -171,6 +174,7 @@ def initialize_X(patientId, time):
 
     return X, idx2patient_date, id2start_date, id2end_date
 
+
 def pick_topk(X, idx2bacteria, k=10, includes=None, excludes=None, include_other=True):
     """
     Picking the top k clusters, including/excluding certain clusters
@@ -204,12 +208,11 @@ def pick_topk(X, idx2bacteria, k=10, includes=None, excludes=None, include_other
         of the seq_idx sequence at time time_step
         None for missing measurements
     """
-    
+
     includes, excludes = [] if includes is None else includes, [] if excludes is None else excludes
 
     # raise exceptions if arguments do not meet requirements
     valid_args_pick_topk(X, idx2bacteria, k, includes, excludes, include_other)
-
 
     # create an ordering of bacteria clusters according to their average srelative abundance
     sorted_idx, sorted_bacteria = create_order(X, idx2bacteria)
@@ -227,15 +230,16 @@ def pick_topk(X, idx2bacteria, k=10, includes=None, excludes=None, include_other
 
     return returned_X, returned_idx2bacteria
 
+
 def valid_args_pick_topk(X, idx2bacteria, k, includes, excludes, include_other):
     """
     Confirm that the arguments for pick_topk meet the requirements
     Arguments are the same with pick_topk function
     """
-    
+
     # all possible bacteria clusters name
     all_bacteria = [idx2bacteria[key] for key in idx2bacteria]
-    
+
     for i in includes:
         # ensure that includes and excludes do not overlap
         if i in excludes:
@@ -245,6 +249,7 @@ def valid_args_pick_topk(X, idx2bacteria, k, includes, excludes, include_other):
             raise Exception('%s is not in idx2bacteria' % i)
     if 'OTHER' in includes:
         raise Exception('OTHER is not a valide bacteria cluster name')
+
 
 def create_order(X, idx2bacteria):
     """
@@ -275,6 +280,7 @@ def create_order(X, idx2bacteria):
     sorted_idx = np.argsort(-total_abundance)
     sorted_bacteria = [idx2bacteria[idx] for idx in sorted_idx]
     return sorted_idx, sorted_bacteria
+
 
 def pick_dimension_list(idx2bacteria, sorted_idx, k, includes, excludes):
     """
@@ -310,6 +316,7 @@ def pick_dimension_list(idx2bacteria, sorted_idx, k, includes, excludes):
         else:
             pass
     return picked_dimensions
+
 
 def create_returned_X(X, picked_dimensions, include_other):
     """
@@ -351,6 +358,7 @@ def create_returned_X(X, picked_dimensions, include_other):
         returned_X.append(returned_x_seq)
     return returned_X
 
+
 def measurement_mean(x, epsilon=0):
     """
     Transform counts to (smoothed) frequencies (relative abundance)
@@ -369,6 +377,7 @@ def measurement_mean(x, epsilon=0):
     x += epsilon
     return x / np.sum(x)
 
+
 def SPIEC_transform(x):
     """
     SPIEC transform
@@ -386,10 +395,11 @@ def SPIEC_transform(x):
         last dimension is dropped
     """
     # ensure that the measurement is a frequency
-    assert(np.abs(np.sum(x) - 1) < 1e-7)
+    assert (np.abs(np.sum(x) - 1) < 1e-7)
     y = np.log(x)
     y -= np.mean(y)
     return y[:-1]
+
 
 def inverse_SPIEC(y):
     """
@@ -409,6 +419,7 @@ def inverse_SPIEC(y):
     x = x / np.sum(x)
     return x
 
+
 def default_transform(x):
     """
     Default transformation
@@ -427,6 +438,7 @@ def default_transform(x):
     x = SPIEC_transform(x)
     return x
 
+
 def map_2D_array(X, f):
     """
     A wrapper that maps each measurement/control/events/arrays to an element,
@@ -444,11 +456,13 @@ def map_2D_array(X, f):
     returned_X = [[f(x) if x is not None else None for x in x_seq] for x_seq in X]
     return returned_X
 
+
 def default_measurement_transformation(X):
     """
     Apply default measurement transformation to measurement count X
     """
     return map_2D_array(X, default_transform)
+
 
 def read_event(file_name, id2start_date, id2end_date):
     """
@@ -483,15 +497,16 @@ def read_event(file_name, id2start_date, id2end_date):
 
     # initialize U
     U = initialize_U(id2start_date, id2end_date, event_count)
-    
+
     # adding the events to U
     in_file = open(file_name, 'r')
     for l in in_file:
         add_event(l, U, id2start_date, id2end_date, event_name2idx)
-    
+
     in_file.close()
 
     return U, event_name2idx, idx2event_name
+
 
 def add_event(l, U, id2start_date, id2end_date, event_name2idx):
     """
@@ -523,6 +538,7 @@ def add_event(l, U, id2start_date, id2end_date, event_name2idx):
     except:
         return
 
+
 def initialize_U(id2start_date, id2end_date, event_count):
     """
     initialize the returned U array
@@ -530,6 +546,7 @@ def initialize_U(id2start_date, id2end_date, event_count):
     U = [np.zeros((id2end_date[id] - id2start_date[id] + 1, event_count))
          for id in id2start_date]
     return U
+
 
 def get_event_name2idx(file_name):
     """
@@ -556,6 +573,7 @@ def get_event_name2idx(file_name):
             pass
     in_file.close()
     return event_name2idx
+
 
 def parse_line_to_event(line):
     """
@@ -585,6 +603,7 @@ def parse_line_to_event(line):
     end = int(end)
     return id, event_name, start, end
 
+
 def pick_events_by_dims(U, picked_dimensions):
     """
     Pick the selected events of U according to the index they correspond
@@ -604,6 +623,7 @@ def pick_events_by_dims(U, picked_dimensions):
     """
     returned_U = [[u[picked_dimensions] if u is not None else None for u in u_seq] for u_seq in U]
     return returned_U
+
 
 def extract_event_by_filter(U, idx2event_name, filter):
     """
@@ -637,6 +657,7 @@ def extract_event_by_filter(U, idx2event_name, filter):
     returned_U = pick_events_by_dims(U, picked_dimensions)
     return returned_U, returned_idx2event_name
 
+
 def extract_event_by_type(U, idx2event_name, type):
     """
     Picking the events that has the specified "type" (e.g. "Antibiotic", "Bacteremia", etc)
@@ -660,6 +681,7 @@ def extract_event_by_type(U, idx2event_name, type):
     returned_idx2event_name: array of (String, String)
         a 'map' from dimension in each of the numpy array in returned_U to (type, description)
     """
+
     def filter(event_name):
         try:
             return event_name[0] == type
@@ -668,6 +690,7 @@ def extract_event_by_type(U, idx2event_name, type):
 
     returned_U, returned_idx2event_name = extract_event_by_filter(U, idx2event_name, filter)
     return returned_U, returned_idx2event_name
+
 
 def or_U(U):
     """

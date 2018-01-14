@@ -9,6 +9,7 @@ that specifies the EM algorithm's configuration
 
 import numpy as np
 
+
 class EM_Config:
     """
         A wrapper class for Expectation Maximization algorithm options dictionary (config)

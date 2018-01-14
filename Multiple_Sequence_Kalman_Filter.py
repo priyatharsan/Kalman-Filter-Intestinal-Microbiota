@@ -14,13 +14,15 @@ from Single_Sequence_Kalman_Filter import SSKF
 from scipy import linalg
 from EM_Config import EM_Config
 
+
 class MSKF:
     """
     Implement the multiple sequence Kalman Filter class
     Most important functionalities are implemented in here and Single_Sequence_Kalman_Filter.py
     """
 
-    def __init__(self, _dimension, _control_dimension, _z_0_hat=None, _P_0_hat=None, _A=None, _B=None, _Q=None, _R=None):
+    def __init__(self, _dimension, _control_dimension, _z_0_hat=None, _P_0_hat=None, _A=None, _B=None, _Q=None,
+                 _R=None):
         """
         Initialize the MSKF class
 
@@ -57,18 +59,18 @@ class MSKF:
             _Q = np.eye(self.dimension)
         if _R is None:
             _R = np.eye(self.dimension)
-        
+
         # setting parameters
         self.z_0_hat, self.P_0_hat, self.A, self.B, self.Q, self.R = _z_0_hat, _P_0_hat, _A, _B, _Q, _R
-        
+
         # check shape
-        assert(self.z_0_hat.shape == (self.dimension,))
-        assert(self.P_0_hat.shape == (self.dimension, self.dimension))
-        assert(self.A.shape == (self.dimension, self.dimension))
-        assert(self.B.shape == (self.dimension, self.control_dimension))
-        assert(self.Q.shape == (self.dimension, self.dimension))
-        assert(self.R.shape == (self.dimension, self.dimension))
-        
+        assert (self.z_0_hat.shape == (self.dimension,))
+        assert (self.P_0_hat.shape == (self.dimension, self.dimension))
+        assert (self.A.shape == (self.dimension, self.dimension))
+        assert (self.B.shape == (self.dimension, self.control_dimension))
+        assert (self.Q.shape == (self.dimension, self.dimension))
+        assert (self.R.shape == (self.dimension, self.dimension))
+
         self.SSKFs = []
         self.current_estimate = False
 
@@ -86,7 +88,7 @@ class MSKF:
         """
         # check the number of sequence for control and measurements match
         self.seq_count = len(measurements)
-        assert(len(controls) == self.seq_count)
+        assert (len(controls) == self.seq_count)
 
         # initialize the #seq_count single sequence Kalman Filter
         # pass in measurements and controls for each of them
@@ -124,14 +126,14 @@ class MSKF:
             of the seq_idx sequence at time time_step
         """
         predicted, filtered, smoothed = {'mean': [], 'covariance': []}, {'mean': [], 'covariance': []}, \
-            {'mean': [], 'covariance': []}
-        
+                                        {'mean': [], 'covariance': []}
+
         # perform inference/estimation for each single sequence Kalman filter
         for sskf in self.SSKFs:
             sskf.filter()
             sskf.smooth()
             sskf.calculate_covariances()
-            
+
             # aggregate the result in the return dictionaries
             predicted['mean'].append(sskf.predicted['mean'])
             predicted['covariance'].append(sskf.predicted['covariance'])
@@ -163,6 +165,7 @@ class MSKF:
         Maximization
         Update z_0_hat, P_0_hat, A, B, Q, R
     """
+
     def maximize(self):
         """
         Maximization
@@ -182,14 +185,14 @@ class MSKF:
         # value fixed, no update
         if self.config['z_0_hat_option'] == 'fixed':
             return
-    
+
         # argument not recognized
         if self.config['z_0_hat_option'] != 'flexible':
             print('WARNING: value %s not understood for key z_0_hat_option' % self.config['z_0_hat_option'])
-        
+
         # update without constraint
         self.z_0_hat = sum([sskf.prepare_z_0_hat() for sskf in self.SSKFs]) / self.seq_count
-        
+
         # copy the value to each single sequence Kalman Filter
         for sskf in self.SSKFs:
             sskf.z_0_hat = self.z_0_hat
@@ -201,23 +204,23 @@ class MSKF:
         # value fixed, no update
         if self.config['P_0_hat_option'] == 'fixed':
             return
-        
+
         # update without constraint
         self.P_0_hat = sum([sskf.prepare_P_0_hat() for sskf in self.SSKFs]) / self.seq_count
         self.P_0_hat = (self.P_0_hat + self.P_0_hat.T) / 2
-        
+
         # update under the constraint of being a diagnol matrix
         if self.config['P_0_hat_option'] == 'diag':
             self.P_0_hat = np.diag(np.diag(self.P_0_hat))
-        
+
         # update under the constraint of being a sclar times an identity matrix
         if self.config['P_0_hat_option'] == 'scalar':
             self.P_0_hat = np.mean(np.diag(self.P_0_hat)) * np.eye(self.dimension)
-        
+
         # argument not recognized
         if self.config['P_0_hat_option'] not in EM_Config.OPTIONS_CHOICES:
             print('WARNING: value %s not understood for key P_0_hat_option' % self.config['P_0_hat_option'])
-        
+
         # copy the value to each single sequence Kalman Filter
         for sskf in self.SSKFs:
             sskf.P_0_hat = self.P_0_hat
@@ -229,24 +232,24 @@ class MSKF:
         # value fixed, no update
         if self.config['AB_option'] == 'fixed':
             return
-        
+
         if self.config['AB_option'] != 'flexible':
             print('WARNING: value %s not understood for key AB_option' % self.config['AB_option'])
-        
+
         # collect the sums of some variables needed for A, B maximization
         zuztp1_sum, zutzut_sum = np.zeros((self.control_dimension + self.dimension, self.dimension)), \
-                                    np.zeros((self.control_dimension + self.dimension, self.control_dimension
-                                              + self.dimension))
+                                 np.zeros((self.control_dimension + self.dimension, self.control_dimension
+                                           + self.dimension))
 
         for seq_idx in range(self.seq_count):
             zuztp1, zutzut = self.SSKFs[seq_idx].prepare_AB()
             zuztp1_sum += zuztp1
             zutzut_sum += zutzut
-        
+
         # calculate A, B
         best_fit_AB = zuztp1_sum.T.dot(linalg.pinv(zutzut_sum))
-        updated_A = best_fit_AB[:,range(self.dimension)]
-        updated_B = best_fit_AB[:,self.dimension::]
+        updated_A = best_fit_AB[:, range(self.dimension)]
+        updated_B = best_fit_AB[:, self.dimension::]
         self.A, self.B = updated_A, updated_B
         for sskf in self.SSKFs:
             sskf.A, sskf.B = self.A, self.B
@@ -258,11 +261,11 @@ class MSKF:
         # value fixed, no update
         if self.config['Q_option'] == 'fixed':
             return
-        
+
         # update without constraint
         self.Q = sum([sskf.prepare_Q() for sskf in self.SSKFs]) / self.total_transition_count
         self.Q = (self.Q + self.Q.T) / 2
-        
+
         # update under the constraint of being a diagnol matrix
         if self.config['Q_option'] == 'diag':
             self.Q = np.diag(np.diag(self.Q))
@@ -286,11 +289,11 @@ class MSKF:
         # value fixed, no update
         if self.config['R_option'] == 'fixed':
             return
-        
+
         # update without constraint
         self.R = sum([sskf.prepare_R() for sskf in self.SSKFs]) / self.total_obs
         self.R = (self.R + self.R.T) / 2
-        
+
         # update under the constraint of being a diagnol matrix
         if self.config['R_option'] == 'diag':
             self.R = np.diag(np.diag(self.R))
@@ -298,11 +301,11 @@ class MSKF:
         # update under the constraint of being a sclar times an identity matrix
         if self.config['R_option'] == 'scalar':
             self.R = np.mean(np.diag(self.R)) * np.eye(self.dimension)
-        
+
         # argument not recognized
         if self.config['R_option'] not in EM_Config.OPTIONS_CHOICES:
             print('WARNING: value %s not understood for key R_option' % self.config['R_option'])
-        
+
         # copy the value to each single sequence Kalman Filter
         for sskf in self.SSKFs:
             sskf.R = self.R
@@ -366,22 +369,22 @@ class MSKF:
         # tolerance for numerical accuracy
         epsilon = 1e-7
         warning_flag = False
-        
+
         # check whether the configuration has been initialized
         if self.config is None:
             self.config = EM_Config(self.dimension, self.control_dimension).get_default_config()
-        
+
         # EM iteration loop
         iteration_idx = 0
         log_likelihood_history = []
         prev_ll = float('-inf')
         for _ in range(self.config['num_iterations']):
             current_ll = self._em_()
-            
+
             # print warning if log likelihood decreases more than 1e-7
             if current_ll + epsilon <= prev_ll:
                 print('WARNING: log-likelihood decreases. Something is going wrong')
-            
+
             # converge if the improvement in log likelihood is smaller than the threshold
             if current_ll - self.config['threshold'] <= prev_ll:
                 break
