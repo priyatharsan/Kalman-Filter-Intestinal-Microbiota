@@ -1,10 +1,19 @@
+"""
+==========================================
+Expectation Maximization algorithm options
+==========================================
+
+This module implements a wrapper for the dictionary
+that specifies the EM algorithm's configuration
+"""
+
 import numpy as np
 
 class EM_Config:
-    '''
-        Options for the Expectation Maximization algorithm configuration
+    """
+        A wrapper class for Expectation Maximization algorithm options dictionary (config)
         Refer to the output of print_em_manual function for further details
-    '''
+    """
     CONFIG_KEYS = ['z_0_hat_option', 'initial_z_0_hat', 'P_0_hat_option', 'initial_P_0_hat',
                    'AB_option', 'initial_A', 'initial_B', 'Q_option', 'initial_Q',
                    'R_option', 'initial_R', 'threshold', 'num_iterations']
@@ -12,7 +21,7 @@ class EM_Config:
     OPTIONS_CHOICES = ['fixed', 'flexible', 'diag', 'scalar']
     
     def __init__(self, dimension, control_dimension, config=None):
-        '''
+        """
         Initializing a EM configuration
 
         Parameters
@@ -23,7 +32,7 @@ class EM_Config:
             dimension of u (control)
         config: {String: String}
             specified EM config dict
-        '''
+        """
         self.dimension = dimension
         self.control_dimension = control_dimension
 
@@ -53,9 +62,9 @@ class EM_Config:
             print('Please use the print_em_manual function to know more')
 
     def print_em_manual():
-        '''
+        """
         Print the explanation of the options/configs for the EM algorithm
-        '''
+        """
         print('------------ EM_Config Manual ------------')
         print('The list of keys for the configuration')
         print(EM_Config.CONFIG_KEYS)
@@ -80,22 +89,22 @@ class EM_Config:
         print('------------ EM_Config Manual ------------')
 
     def print_config(self):
-        '''
+        """
         Print the configuration to screen
-        '''
+        """
         for key in CONFIG_KEYS:
             print('--- ' + key + ' ---')
             print(CONFIG_KEYS[key])
 
     def get_default_config(self):
-        '''
+        """
         Get the default EM configuration dict
 
         Returns
         -------
         config: {String: String}
             return configuration dict
-        '''
+        """
         
         config = {}
         
@@ -128,7 +137,7 @@ class EM_Config:
         return config
     
     def __getitem__(self, key):
-        '''
+        """
         Override the [] operators, get item
 
         Parameters
@@ -140,13 +149,13 @@ class EM_Config:
         -------
         config[key]: String
             value of key in config dict
-        '''
+        """
         if key not in self.config:
             print('WARNING: Key %s is not one of the config args, it is ignored' % key)
         return self.config[key]
 
     def __setitem__(self, key, value):
-        '''
+        """
         Override the [] operators, set item
 
         Parameters
@@ -155,7 +164,7 @@ class EM_Config:
             the key to be set
         value: String
             the value the key corresponds
-        '''
+        """
         if key not in self.config:
             print('WARNING: Key %s is not one of the config args, it is ignored' % key)
         if 'option' in key and value not in EM_Config.OPTIONS_CHOICES:

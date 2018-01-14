@@ -1,14 +1,26 @@
+"""
+===================
+Kalman Filter class
+===================
+
+This module implements nn sklearn flavor wrapper of Multiple Sequence Kalman Filter
+It supports
+i) inference (predict, filter, smooth)
+ii) maximization
+"""
+
 from Kalman_Filter_API import *
 from Utils import *
 from EM_Config import EM_Config
 
 class Kalman_Filter():
-    '''
-    An sklearn flavor wrapper
-    '''
+    """
+    An sklearn flavor wrapper of Multiple Sequence Kalman Filter
+    Provide 'fit', 'estimate' functions.
+    """
     
     def __init__(self, dimension, control_dimension):
-        '''
+        """
         Initializing a Kalman Filter class of Sklearn flavor
 
         Parameters
@@ -17,12 +29,12 @@ class Kalman_Filter():
             dimension of x (measurement)
         control_dimension: int
             dimension of u (control)
-        '''
+        """
         self.parameters = None
         self.config = EM_Config(dimension, control_dimension).get_default_config()
     
     def fit(self, X, U, config=None, verbose_level=2, print_every=10):
-        '''
+        """
         Train the parameters
 
         Parameters
@@ -40,7 +52,7 @@ class Kalman_Filter():
             2: print summary for every print_every EM iteration
         print_every: int
             print summary for every print_every EM iteration if verbose_level = 2
-        '''
+        """
         dimension, control_dimension = get_dimension(X), get_control_dimension(U)
         if config is not None:
             self.config = config
@@ -57,7 +69,7 @@ class Kalman_Filter():
         self.config['initial_R'] = R
     
     def estimate(self, X, U):
-        '''
+        """
         Infer the hidden variables
 
         Parameters
@@ -86,5 +98,5 @@ class Kalman_Filter():
                 of the seq_idx sequence at time time_step
                 'smoothed['covariance'][seq_idx][time_step]' = the covariance of smoothed value
                 of the seq_idx sequence at time time_step
-        '''
+        """
         return infer(X, U, self.parameters)

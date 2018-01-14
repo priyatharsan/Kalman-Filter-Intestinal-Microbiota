@@ -4,7 +4,7 @@ from Multiple_Sequence_Kalman_Filter import MSKF
 from Single_Sequence_Kalman_Filter import SSKF
 
 def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10):
-    '''
+    """
     Finding the 'best' parameters using the Expectation Maximization algorithm
 
     Parameters
@@ -40,7 +40,7 @@ def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10)
             emission covariance matrix
     ll_history: [num_iterations] array of numpy float
         'll_history[iteration_idx]' = the log likelihood at EM iteration iteration_idx
-    '''
+    """
     # initialize the parameters
     dimension, control_dimension = get_dimension(X), get_control_dimension(U)
     if config is None:
@@ -59,7 +59,7 @@ def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10)
     return parameters, ll_history
 
 def calculate_log_likelihood(X, U, parameters):
-    '''
+    """
     Calculate the log likelihood per data point given the parameters
 
     Parameters
@@ -87,7 +87,7 @@ def calculate_log_likelihood(X, U, parameters):
     -------
     mskf.log_likelihood(): numpy float
         the log likelihood per data point
-    '''
+    """
     # initialize the parameters
     z_0_hat, P_0_hat, A, B, Q, R = parameters
     dimension, control_dimension = get_dimension(X), get_control_dimension(U)
@@ -97,7 +97,7 @@ def calculate_log_likelihood(X, U, parameters):
     return mskf.log_likelihood()
 
 def infer(X, U, parameters):
-    '''
+    """
     Infer the hidden variables
 
     Parameters
@@ -138,7 +138,7 @@ def infer(X, U, parameters):
         of the seq_idx sequence at time time_step
         'smoothed['covariance'][seq_idx][time_step]' = the covariance of smoothed value
         of the seq_idx sequence at time time_step
-    '''
+    """
     # initialize the parameters
     z_0_hat, P_0_hat, A, B, Q, R = parameters
     dimension, control_dimension = get_dimension(X), get_control_dimension(U)
@@ -150,7 +150,7 @@ def infer(X, U, parameters):
     return predicted, filtered, smoothed
 
 def simulate(U, parameters):
-    '''
+    """
     Simulate under the Kalman Filter assumptions given the parameters
 
     Parameters
@@ -177,7 +177,7 @@ def simulate(U, parameters):
             'Z[seq_idx][time_step]' = the true value of the hidden variable of the seq_idx sequence at time time_step
     X: [seq_count] array of [seq_length] array of ([dimension] numpy array/None)
             'X[seq_idx][time_step]' = the measurement of the seq_idx sequence at time time_step
-    '''
+    """
     # initialize the parameters
     z_0_hat, P_0_hat, A, B, Q, R = parameters
     dimension, control_dimension = B.shape

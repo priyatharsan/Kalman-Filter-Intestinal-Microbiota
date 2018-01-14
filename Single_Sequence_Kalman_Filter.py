@@ -1,16 +1,29 @@
+"""
+============================================
+Kalman Filter functions on a single sequence
+============================================
+
+This Module implements the SSKF (single sequence Kalman Filter) class
+It supports:
+i) inference (predict, filter, smooth)
+ii) prepare for maximization (z_0_hat, P_0_hat, A, B, Q, R)
+iii) simulation
+iv) calculate log likelihood
+"""
 import numpy as np
-import math
 from numpy.random import multivariate_normal
 from scipy import linalg
 from Utils import log_multivariate_normal_density
 
 class SSKF:
-    '''
+    """
     Implement the single sequence Kalman Filter class
-    '''
+    A basic building block for the Kalma Filter related algorithms
+    Most algorithms (and math) can be seen here
+    """
 
     def __init__(self, _dimension, _control_dimension, _z_0_hat, _P_0_hat, _A, _B, _Q, _R):
-        '''
+        """
         Initialize the SSKF class
 
         Parameters
@@ -31,13 +44,13 @@ class SSKF:
             transition covariance matrix
         _R: [dimension, dimension] numpy array
             emission covariance matrix
-        '''
+        """
         self.dimension, self.control_dimension = _dimension, _control_dimension
         self.z_0_hat, self.P_0_hat = _z_0_hat, (_P_0_hat + _P_0_hat.T) / 2
         self.A, self.B, self.Q, self.R = _A, _B, (_Q + _Q.T) / 2, (_R + _R.T) / 2
 
     def pass_in_measurement_and_control(self, measurements, controls):
-        '''
+        """
         Set the observed data and control matrix for this single sequence Kalman Filter
 
         Parameters
@@ -47,7 +60,7 @@ class SSKF:
             None for missing measurements
         controls: [seq_length] of ([dimension] numpy array)
             'controls[time_step]' = the control at time time_step
-        '''
+        """
         # setting the X and U
         self.X = measurements
         self.U = controls
@@ -70,7 +83,7 @@ class SSKF:
         self.n_obs = sum([1 if x is not None else 0 for x in self.X])
 
     def simulate(self, controls):
-        '''
+        """
         Simulate the X and Z according to its parameters
 
         Parameters
@@ -84,7 +97,7 @@ class SSKF:
             'Z[time_step]' = the true value of the hidden variable of the seq_idx sequence at time time_step
         X: [seq_length] array of ([dimension] numpy array/None)
             'X[time_step]' = the measurement at time time_step
-        '''
+        """
         simulated_seq_length = len(controls)
         simulated_Z, simulated_X = [], []
         
@@ -102,7 +115,7 @@ class SSKF:
         return simulated_Z, simulated_X
 
     def get_offsets(self):
-        '''
+        """
         Calculate the offsets introduced by B and U
         We can substract the offset from measurement so that we can transform it to a
         standard Kalman Filter Inference problem without B
@@ -110,7 +123,7 @@ class SSKF:
         Returns
         -------
         offsets: the offsets introduced by B and U
-        '''
+        """
         # define simpler names for the parameters
         A, B, U = self.A, self.B, self.U
         offsets = [np.zeros(self.dimension)]
@@ -121,12 +134,13 @@ class SSKF:
         return offsets
 
     def filter(self):
-        '''
+        """
         Filtering steps of the Kalman Filter algorithm
         All the posterior distributions are Gaussian
-        '''
+        """
         # define simpler names in this function
         A, B, U, X = self.A, self.B, self.U, self.X
+
         # calculate offsets due to B and U and reduce the inference to a standard Kalman Filter problem
         # without the B matrix
         self.O = self.get_offsets()
@@ -140,6 +154,7 @@ class SSKF:
         # initialize the varaibles
         self.z_t_t_array, self.P_t_t_array, self.K_tp1 = [], [], []
         self.z_tp1_t_array, self.P_tp1_t_array = [self.z_0_hat], [self.P_0_hat]
+
         # define simpler names for variables
         z_t_t_array, P_t_t_array, K_tp1, z_tp1_t_array, P_tp1_t_array = \
             self.z_t_t_array, self.P_t_t_array, self.K_tp1, self.z_tp1_t_array, self.P_tp1_t_array
@@ -182,9 +197,9 @@ class SSKF:
         self.filtered = {'mean': self.filtered_Z, 'covariance': self.filtered_P}
 
     def smooth(self):
-        '''
+        """
         The smooth step of the Kalman Filter algorithm
-        '''
+        """
         # initialize the "backward" smoothing
         # T means "all the measurements"
         self.z_t_T_array, self.P_t_T_array, self.L_t_array = [self.z_t_t_array[-1]], [self.P_t_t_array[-1]], []
@@ -207,9 +222,9 @@ class SSKF:
         self.smoothed = {'mean': self.smoothed_Z, 'covariance': self.smoothed_P}
 
     def calculate_covariances(self):
-        '''
+        """
         Calculate values necessary for the maximization step
-        '''
+        """
         # covtt: covariance of z_t
         self.covtt = [self.P_t_T_array[time_step] for time_step in range(self.seq_length)]
         # covttp1: covariance of z_t and z_tp1
@@ -220,36 +235,22 @@ class SSKF:
                    for time_step in range(self.seq_length - 1)]
 
     def prepare_z_0_hat(self):
-        '''
+        """
         Prepare the variables needed to maximize over z_0_hat for multiple sequences
-        '''
+        """
         return np.array(self.smoothed_Z[0])
 
-
-    '''
-        Return the variables needed to maximize over P_0_hat for multiple sequences
-        
-        # Returns
-            smoothed_P[0]: E[P_0_T]
-    '''
     def prepare_P_0_hat(self):
-        '''
+        """
         Prepare the variables needed to maximize over P_0_hat for multiple sequences
-        '''
+        """
         return self.covtt[0] + np.outer(self.smoothed_Z[0] - self.z_0_hat,
                                         self.smoothed_Z[0] - self.z_0_hat)
-    
-    '''
-        Return the variables needed to maximize over A and B for multiple sequences
-        
-        # Returns
-            zutztp1: E[zu (dot product) ztp1]
-            zutzut: E[zu (dot product) zu]
-    '''
+
     def prepare_AB(self):
-        '''
+        """
         Prepare the variables needed to maximize over A, B for multiple sequences
-        '''
+        """
         self.zutztp1 = sum([np.concatenate((np.outer(self.smoothed_Z[i], self.smoothed_Z[i + 1])
                                             + self.covttp1[i],
                                             np.outer(self.U[i], self.smoothed_Z[i + 1])))
@@ -266,9 +267,9 @@ class SSKF:
         return self.zutztp1, self.zutzut
 
     def prepare_Q(self):
-        '''
+        """
         Prepare the variables needed to maximize over Q for multiple sequences
-        '''
+        """
         self.state_cov = sum([(np.outer(
                                         self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]),
                                         self.smoothed_Z[i + 1] - self.A.dot(self.smoothed_Z[i]) - self.B.dot(self.U[i]))
@@ -279,9 +280,9 @@ class SSKF:
         return self.state_cov
 
     def prepare_R(self):
-        '''
+        """
         Prepare the variables needed to maximize over R for multiple sequences
-        '''
+        """
         self.emission_cov = sum([(np.zeros((self.dimension, self.dimension)))
                                  if (self.X[i] is None)
                                  else (np.outer(self.X[i] - self.smoothed_Z[i],
@@ -290,7 +291,7 @@ class SSKF:
         return self.emission_cov
 
     def log_likelihood(self, normalize=True):
-        '''
+        """
         Calculate the log likelihood of the measurements given the current parameters
 
         Parameters
@@ -302,7 +303,7 @@ class SSKF:
         -------
             seq_log_prob: numpy float
                 the sum of log probabilities of the entire sequence
-        '''
+        """
         seq_log_prob = 0
         for time_step in range(self.seq_length):
             predicted_mean = self.predicted_Z[time_step]
