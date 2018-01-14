@@ -7,27 +7,33 @@ import sys
 from EM_Config import EM_Config
 
 class MSKF:
+    '''
+    Implement the multiple sequence Kalman Filter
+    '''
 
-    '''
-    Initializer of the Single_Sequence_Kalman_Filter class
-    
-    # Arguments
-        _dimension: dimension of x
-        _control_dimension: dimension of u
-        _A: transition matrix
-        _B: control matrix
-        _Q: transition covariance matrix
-        _R: emission matrix
-        _z_0_hat: the mean for the initial state as a Guassian distribution
-        _p_0_hat: the covariance for the initial state as a Gaussian distribution
-    
-    # Variables
-        max_likelihood: the max likelihood every found
-        max_likelihood_parameters: the parameters that achieve maximum likelihood till now
-        SSKFs: an array of single sequence Kalman Filter that stores the data
-        current_estimate: whether the sskfs stores the inferred values according to the current variables
-    '''
     def __init__(self, _dimension, _control_dimension, _z_0_hat=None, _P_0_hat=None, _A=None, _B=None, _Q=None, _R=None):
+        '''
+        Initialize the MSKF class
+
+        Parameters
+        ----------
+        _dimension: int
+            dimension of x (measurement)
+        _control_dimension: int
+            dimension of u (control)
+        _z_0_hat: [dimension] numpy array
+            initial mean for every sequence
+        _P_0_hat: [dimension, dimension] numpy array
+            initial covariance for every sequence
+        _A: [dimension, dimension] numpy array
+            transition matrix
+        _B: [dimension, control_dimension] numpy array
+            control matrix
+        _Q: [dimension, dimension] numpy array
+            transition covariance matrix
+        _R: [dimension, dimension] numpy array
+            emission covariance matrix
+        '''
         self.dimension = _dimension
         self.control_dimension = _control_dimension
         if _z_0_hat is None:
@@ -57,17 +63,18 @@ class MSKF:
         self.SSKFs = []
         self.current_estimate = False
 
-    '''
-        Initialize all single sequence Kalman Filter and Set the observed data and control matrix
-        
-        # Arguments
-            measurements: multiple sequences observed X, equivalent to self.X
-            controls: multiple sequences control U, equivalent to self.U
-        # Dimensions
-            measurements: an array of (array seq_length of numpy array/None), each of dimension self.dimension
-            controls: an array of *array seq_length of numpy array/None), each of dimension self.control_dimension
-    '''
     def pass_in_measurement_and_control(self, measurements, controls):
+        '''
+        Initialize the single sequences Kalman Filter and pass in the measurements and controls
+
+        Parameters
+        ----------
+        measurements: [seq_count] array of [seq_length] array of ([dimension] numpy array/None)
+            'measurements[seq_idx][time_step]' = the measurement of the seq_idx sequence at time time_step
+            None for missing measurements
+        controls: [seq_count] array of [seq_length] array of ([dimension] numpy array)
+            'controls[seq_idx][time_step]' = the control of the seq_idx sequence at time time_step
+        '''
         # check the number of sequence for control and measurements match
         self.seq_count = len(measurements)
         assert(len(controls) == self.seq_count)
@@ -85,21 +92,32 @@ class MSKF:
         self.total_time_steps = sum(self.seq_lengths)
         self.total_transition_count = self.total_time_steps - self.seq_count
 
-    '''
-        Estimation step for all hidden Z
-        
-        # Returns
-            predicted: predicted values at each time step;
-                        it is a dictionary with entries 'mean'/'covariance';
-                        the values of the dictionary is a 2D array (seq_count * seq_length) of numpy array
-            filtered: filtered values at each time step
-            smoothed: smoothed values (the expectation) at each time step
-    '''
     def estimate(self):
+        '''
+        Perform estimation on every single sequence Kalman Filter and aggregate the results
+
+        Returns
+        -------
+        predicted: {String: array}
+            'predicted['mean'][seq_idx][time_step]' = the mean of the prediction
+            of the seq_idx sequence at time time_step
+            'predicted['covariance'][seq_idx][time_step]' = the covariance of prediction
+            of the seq_idx sequence at time time_step
+        filtered: {String: array}
+            'filtered['mean'][seq_idx][time_step]' = the mean of filtered value
+            of the seq_idx sequence at time time_step
+            'filtered['covariance'][seq_idx][time_step]' = the covariance of filtered value
+            of the seq_idx sequence at time time_step
+        smoothed: {String: array}
+            'smoothed['mean'][seq_idx][time_step]' = the mean of smoothed value
+            of the seq_idx sequence at time time_step
+            'smoothed['covariance'][seq_idx][time_step]' = the covariance of smoothed value
+            of the seq_idx sequence at time time_step
+        '''
         predicted, filtered, smoothed = {'mean': [], 'covariance': []}, {'mean': [], 'covariance': []}, \
             {'mean': [], 'covariance': []}
         
-        #perform inference/estimation for each single sequence Kalman filter
+        # perform inference/estimation for each single sequence Kalman filter
         for sskf in self.SSKFs:
             sskf.filter()
             sskf.smooth()
@@ -115,13 +133,15 @@ class MSKF:
         self.current_estimate = True
         return predicted, filtered, smoothed
 
-    '''
-        Calculate the log likelihood
-        
-        # Returns
-            normalized_ll: normalized log likelihood of all the data
-    '''
     def log_likelihood(self):
+        '''
+        Calculate the log likelihood
+
+        Returns
+        -------
+        normalized_ll: numpy float
+            average log likelihood per data point
+        '''
         if not self.current_estimate:
             self.estimate()
         multi_seq_prob = 0
@@ -135,18 +155,21 @@ class MSKF:
         Update z_0_hat, P_0_hat, A, B, Q, R
     '''
     def maximize(self):
+        '''
+        Maximization
+        Update z_0_hat, P_0_hat, A, B, Q, R
+        '''
         self.update_z_0_hat()
         self.update_P_0_hat()
         self.update_AB()
         self.update_Q()
         self.update_R()
         self.current_estimate = False
-    
-    '''
-        Calculate the z_0_hat for the maximization step and update
-    '''
+
     def update_z_0_hat(self):
-        
+        '''
+        Calculate the z_0_hat for the maximization step and update
+        '''
         # value fixed, no update
         if self.config['z_0_hat_option'] == 'fixed':
             return
@@ -162,11 +185,10 @@ class MSKF:
         for sskf in self.SSKFs:
             sskf.z_0_hat = self.z_0_hat
 
-    '''
-        Calculate the P_0_hat for the maximization step and update
-    '''
     def update_P_0_hat(self):
-        
+        '''
+        Calculate the P_0_hat for the maximization step and update
+        '''
         # value fixed, no update
         if self.config['P_0_hat_option'] == 'fixed':
             return
@@ -191,11 +213,10 @@ class MSKF:
         for sskf in self.SSKFs:
             sskf.P_0_hat = self.P_0_hat
 
-    '''
-        Calculate the A, B for the maximization step and update
-    '''
     def update_AB(self):
-        
+        """
+        Calculate the A, B for the maximization step and update
+        """
         # value fixed, no update
         if self.config['AB_option'] == 'fixed':
             return
@@ -220,12 +241,11 @@ class MSKF:
         self.A, self.B = updated_A, updated_B
         for sskf in self.SSKFs:
             sskf.A, sskf.B = self.A, self.B
-    
-    '''
-        Calculate the Q for the maximization step and update
-    '''
+
     def update_Q(self):
-        
+        '''
+        Calculate the Q for the maximization step and update
+        '''
         # value fixed, no update
         if self.config['Q_option'] == 'fixed':
             return
@@ -250,11 +270,10 @@ class MSKF:
         for sskf in self.SSKFs:
             sskf.Q = self.Q
 
-    '''
-        Calculate the R for the maximization step and update
-    '''
     def update_R(self):
-        
+        '''
+        Calculate the R for the maximization step and update
+        '''
         # value fixed, no update
         if self.config['R_option'] == 'fixed':
             return
@@ -279,33 +298,61 @@ class MSKF:
         for sskf in self.SSKFs:
             sskf.R = self.R
 
-    '''
-        One iteration of EM algorithm
-        # Returns
-            log likelihood of data
-    '''
     def _em_(self):
+        '''
+        One iteration of the EM algorithm
+
+        Returns
+        -------
+        self.log_likelihood(): numpy float
+            the log likelihood per data point
+        '''
         if not self.current_estimate:
             self.estimate()
         self.maximize()
         return self.log_likelihood()
-    
-    '''
-        Set the EM configuration
-    '''
+
     def set_em_config(self, config):
+        '''
+        Set the EM configuration
+
+        Parameters
+        ----------
+        config: instance of EM_Config
+            the Expectation Maximization configuration
+        '''
         self.config = config
 
-    '''
-        The actual EM algorithm implemented here
-        # Argument
-            verbose_level: (0) print nothing (1) print info at the end of EM (2) print info at every iteration of EM
-            print_every: print the log likelihood every print_every iterations
-        # Returns
-            the optimized parameters
-    '''
     def em(self, verbose_level=2, print_every=10):
-        
+        '''
+        The actual Expectation Maximization algorithm implemented here
+
+        Parameters
+        ----------
+        verbose_level: int
+            0: print nothing
+            1: print summary at the end of all EM iterations
+            2: print summary for every print_every EM iteration
+        print_every: int
+            print summary for every print_every EM iteration if verbose_level = 2
+
+        Returns
+        -------
+        z_0_hat: [dimension] numpy array
+            initial mean for every sequence
+        P_0_hat: [dimension, dimension] numpy array
+            initial covariance for every sequence
+        A: [dimension, dimension] numpy array
+            transition matrix
+        B: [dimension, control_dimension] numpy array
+            control matrix
+        Q: [dimension, dimension] numpy array
+            transition covariance matrix
+        R: [dimension, dimension] numpy array
+            emission covariance matrix
+        log_likelihood_history: [num_iterations] array of numpy float
+            the log likelihood at EM iteration iteration_idx
+        '''
         # tolerance for numerical accuracy
         epsilon = 1e-7
         warning_flag = False
@@ -342,11 +389,11 @@ class MSKF:
             print('WARNING: errors have occurred in the EM algorithm')
 
         return (self.z_0_hat, self.P_0_hat, self.A, self.B, self.Q, self.R), log_likelihood_history
-        
-    '''
-        Print all the current parameters
-    '''
+
     def print_parameters_to_screen(self):
+        '''
+        Print all the current parameters
+        '''
         print('--- Printing Parameters ---')
         print('Initial State Mean - z_0_hat')
         print(self.z_0_hat)

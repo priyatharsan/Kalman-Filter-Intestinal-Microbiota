@@ -12,8 +12,23 @@ class EM_Config:
     OPTIONS_CHOICES = ['fixed', 'flexible', 'diag', 'scalar']
     
     def __init__(self, dimension, control_dimension, config=None):
+        '''
+        Initializing a EM configuration
+
+        Parameters
+        ----------
+        dimension: int
+            dimension of x (measurement)
+        control_dimension: int
+            dimension of u (control)
+        config: {String: String}
+            specified EM config dict
+        '''
         self.dimension = dimension
         self.control_dimension = control_dimension
+
+        # except the options specified in config argument
+        # set all others to default
         config_proposal = self.get_default_config()
         success_flag = True
         
@@ -38,6 +53,9 @@ class EM_Config:
             print('Please use the print_em_manual function to know more')
 
     def print_em_manual():
+        '''
+        Print the explanation of the options/configs for the EM algorithm
+        '''
         print('------------ EM_Config Manual ------------')
         print('The list of keys for the configuration')
         print(EM_Config.CONFIG_KEYS)
@@ -61,19 +79,23 @@ class EM_Config:
         print()
         print('------------ EM_Config Manual ------------')
 
-    '''
-        Print the configuration to screen
-    '''
     def print_config(self):
+        '''
+        Print the configuration to screen
+        '''
         for key in CONFIG_KEYS:
             print('--- ' + key + ' ---')
             print(CONFIG_KEYS[key])
 
-    '''
-        # Return:
-            The return configuration dict
-    '''
     def get_default_config(self):
+        '''
+        Get the default EM configuration dict
+
+        Returns
+        -------
+        config: {String: String}
+            return configuration dict
+        '''
         
         config = {}
         
@@ -105,18 +127,37 @@ class EM_Config:
 
         return config
     
-    '''
-        Override the [] operators
-    '''
     def __getitem__(self, key):
+        '''
+        Override the [] operators, get item
+
+        Parameters
+        ----------
+        key: String
+            key of config dict
+
+        Returns
+        -------
+        config[key]: String
+            value of key in config dict
+        '''
         if key not in self.config:
             print('WARNING: Key %s is not one of the config args, it is ignored' % key)
         return self.config[key]
 
     def __setitem__(self, key, value):
+        '''
+        Override the [] operators, set item
+
+        Parameters
+        ----------
+        key: String
+            the key to be set
+        value: String
+            the value the key corresponds
+        '''
         if key not in self.config:
             print('WARNING: Key %s is not one of the config args, it is ignored' % key)
         if 'option' in key and value not in EM_Config.OPTIONS_CHOICES:
             print('WARNING: Key word \"%s\" not understood for key: %s' % (config_proposal[key], key))
         self.config[key] = value
-
