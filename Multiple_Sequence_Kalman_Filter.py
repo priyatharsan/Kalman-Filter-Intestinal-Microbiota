@@ -7,7 +7,7 @@ This Module implements the MSKF (multiple sequence Kalman Filter) class
 It supports:
 i) inference (predict, filter, smooth)
 ii) maximization (z_0_hat, P_0_hat, A, B, Q, R)
-iii) calculate log likelihood
+iii) calculating log likelihood
 """
 import numpy as np
 from Single_Sequence_Kalman_Filter import SSKF

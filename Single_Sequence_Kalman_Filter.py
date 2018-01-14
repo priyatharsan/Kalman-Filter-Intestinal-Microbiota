@@ -8,7 +8,7 @@ It supports:
 i) inference (predict, filter, smooth)
 ii) prepare for maximization (z_0_hat, P_0_hat, A, B, Q, R)
 iii) simulation
-iv) calculate log likelihood
+iv) calculating log likelihood
 """
 import numpy as np
 from numpy.random import multivariate_normal

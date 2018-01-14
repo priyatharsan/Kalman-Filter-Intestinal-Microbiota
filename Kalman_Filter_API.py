@@ -1,3 +1,15 @@
+"""
+=====================================
+Kalman Filter APIs not based on class
+=====================================
+
+Several directly callable Kalman Filter functions
+It includes:
+i) inference (predict, fitler, smooth)
+ii) maximization
+iii) simulation
+iv) calculating log likelihood
+"""
 from Utils import get_dimension, get_control_dimension
 from EM_Config import EM_Config
 from Multiple_Sequence_Kalman_Filter import MSKF
