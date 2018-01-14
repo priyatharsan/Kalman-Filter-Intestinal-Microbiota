@@ -46,7 +46,7 @@ def expectation_maximization(X, U, config=None, verbose_level=2, print_every=10)
         A: [dimension, dimension] numpy array
             transition matrix
         B: [dimension, control_dimension] numpy array
-            control matrix
+            control effect matrix
         Q: [dimension, dimension] numpy array
             transition covariance matrix
         R: [dimension, dimension] numpy array
@@ -91,7 +91,7 @@ def calculate_log_likelihood(X, U, parameters):
         A: [dimension, dimension] numpy array
             transition matrix
         B: [dimension, control_dimension] numpy array
-            control matrix
+            control effect matrix
         Q: [dimension, dimension] numpy array
             transition covariance matrix
         R: [dimension, dimension] numpy array
@@ -130,7 +130,7 @@ def infer(X, U, parameters):
         A: [dimension, dimension] numpy array
             transition matrix
         B: [dimension, control_dimension] numpy array
-            control matrix
+            control effect matrix
         Q: [dimension, dimension] numpy array
             transition covariance matrix
         R: [dimension, dimension] numpy array
@@ -181,7 +181,7 @@ def simulate(U, parameters):
         A: [dimension, dimension] numpy array
             transition matrix
         B: [dimension, control_dimension] numpy array
-            control matrix
+            control effect matrix
         Q: [dimension, dimension] numpy array
             transition covariance matrix
         R: [dimension, dimension] numpy array

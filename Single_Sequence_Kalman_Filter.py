@@ -40,7 +40,7 @@ class SSKF:
         _A: [dimension, dimension] numpy array
             transition matrix
         _B: [dimension, control_dimension] numpy array
-            control matrix
+            control effect matrix
         _Q: [dimension, dimension] numpy array
             transition covariance matrix
         _R: [dimension, dimension] numpy array
