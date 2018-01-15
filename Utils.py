@@ -1,6 +1,6 @@
 """
 =====
-utils
+Utils
 =====
 This module implements miscellaneous utility functions
 """
