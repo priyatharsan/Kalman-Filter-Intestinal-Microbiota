@@ -697,3 +697,25 @@ def or_U(U):
     For one patient, one time_step, if one entry of u is 1, it is considered 1
     """
     return map_2D_array(U, lambda x: x.any())
+
+
+def parse_genus_file(file_name):
+    """
+
+    Parametersa
+    ----------
+    file_name: String
+        the file containing names of genuses, one every line
+    Returns
+    -------
+    genuses: an array of String
+        each string in teh array is a genus to be included
+    """
+    if file_name is None:
+        return []
+    in_file = open(file_name, 'r')
+    genuses = []
+    for l in in_file:
+        genuses.append(l.strip())
+    in_file.close()
+    return genuses
