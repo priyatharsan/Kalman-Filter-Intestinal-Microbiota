@@ -13,27 +13,10 @@ v) selecting specific events (e.g. antibiotic administration, bacteremia, etc)
 """
 
 import numpy as np
+import subprocess
 
 
-def map_name_to_genus(s):
-    """
-    Map a complete name of a bacteria to its genus name; default clustering method of read_otu_table
-
-    Parameters
-    ----------
-    s: String
-        complete bacteria name of format "<Phylum>;<Class>;<Order>;<Family>;<Genus>"
-        e.g. Firmicutes;Bacilli;Lactobacillales;Enterococcaceae;Enterococcus
-
-    Returns
-    -------
-    s.split(";")[-1]: String
-        <Genus>
-    """
-    return s.split(";")[-1]
-
-
-def read_otu_table(file_name, cluster_method=map_name_to_genus):
+def read_otu_table(file_name, cluster_method=None):
     """
     Parse the otu table file
 
@@ -55,16 +38,29 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
     idx2bacteria: {int: String}
         a map from a dimension in the numpy array to its corresponding 'bacteria cluster'
     id2start_date: {int: int}
-        a map from patientId (starting from 0) to the starting measurement date
+        a map from patientId (program id) to the starting measurement date
         relative to the reference date
     id2end_date: {int: int}
-        a map from patientId (starting from 0) to the ending measurement date
+        a map from patientId (program id) to the ending measurement date
         relative to the reference date
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
+    program_id2file_id: {int: int}
+        a map from the index in X and U to the actual patient id in the original file
     """
-    in_file = open(file_name, 'r')
+
+    # sort the given otu file, create new ids for patients and store the new otu to a temp file
+    print('cleaning data...')
+    file_id2program_id, program_id2file_id = sort_otu(file_name, '.temp.tsv')
+    print('reading otu table...')
+    in_file = open('.temp.tsv', 'r')
 
     # initialize the variables
     line_count, bacteria2idx = 0, {}
+
+    # default identity cluster method
+    if cluster_method is None:
+        cluster_method = lambda x: x
 
     # read the file
     for line in in_file:
@@ -73,11 +69,7 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
         # read the patient id
         if line_count == 0:
             assert (tokens[0] == 'patientId')
-            patientId = tokens[1:]
-
-            # patientId starts from 1 in the file
-            # starts from 0 in this program
-            patientId = [int(pid) - 1 for pid in patientId]
+            patientId = [int(pid) for pid in tokens[1:]]
 
         # read the time
         elif line_count == 1:
@@ -88,6 +80,9 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
 
         # read the bacteria counts
         else:
+            # record which (id, time_index) have been added
+            # ignore repeats
+            added_set = set()
             bacteria_name = tokens[0]
             new_bacteria = False
             key = cluster_method(bacteria_name)
@@ -103,10 +98,14 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
             bacteria_idx = bacteria2idx[key]
             bacteria_counts = tokens[1:]
 
-            # read in the bacteria counts and add/create new entry for each array (corresponding to)
-            # one measurement
+            # read in the bacteria counts and add/create new entry for each array
+            # (corresponding to one measurement)
             for idx in range(len(patientId)):
                 pId, time_idx = idx2patient_date[idx]
+                if (pId, time_idx) in added_set:
+                    continue
+                else:
+                    added_set.add((pId, time_idx))
                 bacteria_count = int(bacteria_counts[idx])
                 if new_bacteria:
                     X[pId][time_idx].append(bacteria_count)
@@ -116,16 +115,17 @@ def read_otu_table(file_name, cluster_method=map_name_to_genus):
 
         line_count += 1
 
+    # close the reading io file and delete the temp file
+    in_file.close()
+    subprocess.call(['rm', '-rf', '.temp.tsv'])
+
     # make each of the measurement array a numpy array
     X = [[(np.array(x) if x is not None else x) for x in xs] for xs in X]
-
-    # close the reading io file
-    in_file.close()
 
     # map the dimension of a numpy array (for one measurement) to its corresponding bacteria cluster name
     idx2bacteria = dict([(bacteria2idx[key], key) for key in bacteria2idx])
 
-    return X, bacteria2idx, idx2bacteria, id2start_date, id2end_date
+    return X, bacteria2idx, idx2bacteria, id2start_date, id2end_date, file_id2program_id, program_id2file_id
 
 
 def initialize_X(patientId, time):
@@ -135,7 +135,7 @@ def initialize_X(patientId, time):
     Parameters
     ----------
     patientId: [num_measurements] array of int
-        the array of patientId, starting from 0
+        the array of patientId (program id)
     time: [num_measurements] array of int
         the array of measurement data relative to the reference
 
@@ -148,10 +148,10 @@ def initialize_X(patientId, time):
     id2patient_date: {int: (int, int)}
         a map from measurement index [0, measurement_count) to (patient_id, measurement_date)
     id2start_date: {int: int}
-        a map from patientId (starting from 0) to the starting measurement date
+        a map from patientId (program id) to the starting measurement date
         relative to the reference date
     id2end_date: {int: int}
-        a map from patientId (starting from 0) to the ending measurement date
+        a map from patientId (program id) to the ending measurement date
         relative to the reference date
     """
     # the starting and ending measurement date
@@ -164,7 +164,7 @@ def initialize_X(patientId, time):
     patient_count = len(id2start_date)
 
     # initialize X, [] for days that have measurements, None for missing measurements
-    X = [[None for time_step in range(id2end_date[pId] - id2start_date[pId] + 1)]
+    X = [[None for _ in range(id2end_date[pId] - id2start_date[pId] + 1)]
          for pId in range(patient_count)]
     idx2patient_date = {}
     for idx in range(len(patientId)):
@@ -464,7 +464,7 @@ def default_measurement_transformation(X):
     return map_2D_array(X, default_transform)
 
 
-def read_event(file_name, id2start_date, id2end_date):
+def read_event(file_name, id2start_date, id2end_date, file_id2program_id):
     """
     Parse the event file
 
@@ -473,12 +473,13 @@ def read_event(file_name, id2start_date, id2end_date):
     file_name: String
         the name of the event file
     id2start_date: {int: int}
-        a map from patientId (starting from 0) to the starting measurement date
+        a map from patientId (program id) to the starting measurement date
         relative to the reference date
     id2end_date: {int: int}
-        a map from patientId (starting from 0) to the ending measurement date
+        a map from patientId (program id) to the ending measurement date
         relative to the reference date
-
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
     Returns
     -------
     U: [seq_count] array of [seq_length] array of ([dimension] numpy array)
@@ -488,8 +489,11 @@ def read_event(file_name, id2start_date, id2end_date):
         a map from (type, description) to dimension in each of the numpy array in U
     idx2event_name: {int: (String, String)}
         a map from dimension in each of the numpy array in U to (type, description)
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
     """
     # get the mapping from event_name to index
+    print('reading event table...')
     event_name2idx = get_event_name2idx(file_name)
     # get the reverse mapping from index to event_name
     idx2event_name = dict([(event_name2idx[event_name], event_name) for event_name in event_name2idx])
@@ -501,14 +505,13 @@ def read_event(file_name, id2start_date, id2end_date):
     # adding the events to U
     in_file = open(file_name, 'r')
     for l in in_file:
-        add_event(l, U, id2start_date, id2end_date, event_name2idx)
+        add_event(l, U, id2start_date, event_name2idx, file_id2program_id)
 
     in_file.close()
 
     return U, event_name2idx, idx2event_name
 
-
-def add_event(l, U, id2start_date, id2end_date, event_name2idx):
+def add_event(l, U, id2start_date, event_name2idx, file_id2program_id):
     """
     Read a line of event description in the event file and add it to U
 
@@ -521,16 +524,15 @@ def add_event(l, U, id2start_date, id2end_date, event_name2idx):
         one-hot encoded
         'U[seq_idx][time_step][idx]' = 1 if idx^{th} event happens in the seq_idx sequence at time time_step
     id2start_date: {int: int}
-        a map from patientId (starting from 0) to the starting measurement date
-        relative to the reference date
-    id2end_date: {int: int}
-        a map from patientId (starting from 0) to the ending measurement date
+        a map from patientId (program id) to the starting measurement date
         relative to the reference date
     event_name2idx: {(String, String): int}
         a map from (type, description) to dimension in each of the numpy array in U
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
     """
     try:
-        id, event_name, start, end = parse_line_to_event(l)
+        id, event_name, start, end = parse_line_to_event(l, file_id2program_id)
         start_idx = max(0, start - id2start_date[id])
         end_idx = min(len(U[id]), end + 1 - id2start_date[id])
         for time_step in range(start_idx, end_idx):
@@ -566,16 +568,17 @@ def get_event_name2idx(file_name):
     event_name2idx = {}
     for l in in_file:
         try:
-            _, event_name, _, _ = parse_line_to_event(l)
+            _, event_name, _, _ = parse_line_to_event(l, {})
             if event_name2idx.get(event_name) is None:
                 event_name2idx[event_name] = len(event_name2idx)
-        except:
+        except Exception as e:
+            print(e)
             pass
     in_file.close()
     return event_name2idx
 
 
-def parse_line_to_event(line):
+def parse_line_to_event(line, file_id2program_id):
     """
     Parse a line of event description to a list of key elements of the event
 
@@ -584,11 +587,12 @@ def parse_line_to_event(line):
     line: String
         a line in the event description, typically of the format
         <patient_id>\t<type>\t<description>\t<start_date>\t<end_date>
-
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
     Returns
     -------
     id: int
-        patient id (starting from 0)
+        patient id program id
     event_name: (String, String)
         (type, description). e.g. ('Antibiotic', 'Vancomycin')
     start: int
@@ -597,7 +601,7 @@ def parse_line_to_event(line):
         the end date of the event (inclusive) relative to the reference date
     """
     id, type, description, start, end = line.split('\t')
-    id = int(id) - 1
+    id = file_id2program_id.get(int(id))
     event_name = (type, description)
     start = int(start)
     end = int(end)
@@ -699,23 +703,120 @@ def or_U(U):
     return map_2D_array(U, lambda x: x.any())
 
 
-def parse_genus_file(file_name):
+def parse_genus_file(arg_file):
     """
+    Parse the file that include the genuses name (one every line)
 
-    Parametersa
+    Parameters
     ----------
-    file_name: String
+    arg_file: array of String of size 0 or None
+        if None, then arg_file is not specified
+        otherwise, the first element is the file name
         the file containing names of genuses, one every line
     Returns
     -------
     genuses: an array of String
         each string in teh array is a genus to be included
     """
-    if file_name is None:
+    if arg_file is None:
         return []
+    file_name = arg_file[0]
     in_file = open(file_name, 'r')
     genuses = []
     for l in in_file:
         genuses.append(l.strip())
     in_file.close()
     return genuses
+
+def permute_array(original, permutation):
+    """
+    Permute the original array under the permutation
+
+    Parameters
+    ----------
+    original: array
+        the original array to be permuted
+    permutation: int array
+        a permutation of [0, len(array))
+    Returns
+    -------
+    permuted: array
+        the permuted array of the original under permutation
+    """
+    num_elements = len(permutation)
+    assert(len(original) == num_elements)
+    permuted = [0] * num_elements
+    for idx in range(num_elements):
+        permuted[idx] = original[permutation[idx]]
+    return permuted
+
+def sort_otu(otu_file, sorted_file):
+    """
+    Parse an otu table file, sort it, and write it to a temp file
+
+    Parameters
+    ----------
+    otu_file: String
+        input otu table file name
+    sorted_file: String
+        output otu table file name
+    Returns
+    -------
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
+    program_id2file_id: {int: int}
+        a map from the index in X and U to the actual patient id in the original file
+    """
+    # get the patient id and time and create program_ids for the patients
+    in_file = open(otu_file, 'r')
+    patientIds, time = [int(_) for _  in in_file.readline().split('\t')[1:]], [int(_) for _ in in_file.readline().split('\t')[1:]]
+    num_measurements = len(patientIds)
+    file_id2program_id, program_id2file_id = create_id(patientIds)
+
+    # sort according to program_id (first) and date (second)
+    permutation = sorted(range(num_measurements), key=lambda idx: (file_id2program_id[patientIds[idx]], time[idx]))
+
+    out_file = open(sorted_file, 'w')
+    # write the line representing id
+    id_line = '\t'.join(['patientId']+ [str(file_id2program_id[patientIds[permutation[idx]]])
+                                        for idx in range(num_measurements)])+ '\n'
+    out_file.write(id_line)
+    # write the line representing measurement time (relative to measurement day)
+    time_line = '\t'.join(['time'] + [str(time[permutation[idx]]) for idx in range(num_measurements)]) + '\n'
+    out_file.write(time_line)
+
+    # write the bacteria count line
+    for l in in_file:
+        tokens = l.split('\t')
+        bacteria_line = tokens[0] + '\t'
+        bacteria_line += '\t'.join([tokens[1:][permutation[idx]] for idx in range(num_measurements)])
+        out_file.write(bacteria_line)
+
+    # close the files
+    in_file.close()
+    out_file.close()
+    return file_id2program_id, program_id2file_id
+
+
+def create_id(patientIds):
+    """
+    Read the patientIds
+    Create program id (index for X and U) for every patient id
+
+    Parameters
+    ----------
+    patientIds: an array of String
+        patient ids (the first line of the otu table file)
+    Returns
+    -------
+    file_id2program_id: {int: int}
+        a map from the actual patient id in the file to the index of X and U
+    program_id2file_id: {int: int}
+        a map from the index in X and U to the actual patient id in the original file
+    """
+    file_id2program_id, program_id2file_id = {}, {}
+    for file_id in patientIds:
+        if file_id2program_id.get(file_id) is None:
+            file_id2program_id[file_id] = len(file_id2program_id)
+            program_id2file_id[len(program_id2file_id)] = file_id
+    return file_id2program_id, program_id2file_id

@@ -159,7 +159,7 @@ def pad_with_most_recent_measurements(X):
     return X_padded
 
 
-def write_otu(X, otu_file, idx2bacteria, id2start_date):
+def write_otu(X, otu_file, idx2bacteria, id2start_date, program_id2file_id):
     """
     Write X to the otu_file in the otu table format
 
@@ -174,13 +174,15 @@ def write_otu(X, otu_file, idx2bacteria, id2start_date):
     id2start_date: {int: int}
         a map from patientId (starting from 0) to the starting measurement date
         relative to the reference date
+    program_id2file_id: {int: int}
+        a map from the index in X and U to the actual patient id in the original file
     """
     out_file = open(otu_file, 'w')
 
     # write the patient id line
     id_line = 'patientId\t'
     for _ in range(len(X)):
-        id = _ + 1
+        id = program_id2file_id[_]
         id_line += (str(id) + '\t') * len(X[_])
     id_line += '\n'
     out_file.write(id_line)

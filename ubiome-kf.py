@@ -24,45 +24,46 @@ if __name__ == "__main__":
     required_args.add_argument('--event_file', nargs=1, type=str, required=True, help='event table file name')
     optional_args = parser.add_argument_group('optional arguments')
     optional_args.add_argument('--output_dir', nargs=1, type=str, help='the output directory of the kalman filter',
-                               default='./')
+                               default=['inferred/'])
     optional_args.add_argument('--k', nargs=1, type=int, help='the top number of clusters to pick',
-                               default=10)
+                               default=[10])
     optional_args.add_argument('--includes', nargs=1, type=str, help='the file containing bacteria genuses to include',
                                default=None)
     optional_args.add_argument('--excludes', nargs=1, type=str, help='the file containing bacteria genuses to exclude',
                                default=None)
     optional_args.add_argument('--include_other', nargs=1, type=bool, help='whether to add all excluded clusters to '
                                                                            '\"OTHER\" cluster',
-                               default=True)
+                               default=[True])
     optional_args.add_argument('--epsilon', nargs=1, type=float, help='the convergenece threshold',
-                               default=1e-4)
+                               default=[1e-4])
     optional_args.add_argument('--max_iteration', nargs=1, type=int, help='the maximum iterations of EM to run',
-                               default=1000)
+                               default=[1000])
     optional_args.add_argument('--print_every', nargs=1, type=int, help='print every print_every iterations in EM',
-                               default=20)
+                               default=[20])
     args = parser.parse_args()
 
     # read the otu table file and preprocess
-    measurements, bacteria2idx, idx2bacteria, id2start_date, id2end_date = read_otu_table(args.otu_file[0])
-    includes, excludes = parse_genus_file(args.includes[0]), parse_genus_file(args.excludes[0])
+    measurements, bacteria2idx, idx2bacteria, id2start_date, id2end_date, file_id2program_id, program_id2file_id \
+        = read_otu_table(args.otu_file[0])
+    includes, excludes = parse_genus_file(args.includes), parse_genus_file(args.excludes)
     measurements, idx2bacteria = pick_topk(measurements, idx2bacteria, k=args.k[0], includes=includes,
                                            excludes=excludes, include_other=args.include_other[0])
     measurements = default_measurement_transformation(measurements)
     print('Finish reading the otu table file')
 
     # read the event file and preprocess
-    U, event_name2idx, idx2event_name = read_event(args.event_file[0], id2start_date, id2end_date)
+    U, event_name2idx, idx2event_name = read_event(args.event_file[0], id2start_date, id2end_date, file_id2program_id)
     antibiotic_history, antibiotic_dict = extract_event_by_type(U, idx2event_name, 'Antibiotic')
     print('Finish reading the event file')
 
     # setting up EM
     dimension, control_dimension = len(idx2bacteria) - 1, len(antibiotic_dict)
     kf = Kalman_Filter(dimension, control_dimension)
-    kf.config['threshold'] = args.epsilon
+    kf.config['threshold'] = args.epsilon[0]
     kf.config['num_iterations'] = args.max_iteration[0]
 
     # training
-    print('Training')
+    print('Training...')
     kf.fit(measurements, antibiotic_history, print_every=args.print_every[0])
 
     # inferring
@@ -90,6 +91,6 @@ if __name__ == "__main__":
     plt.savefig(output_dir + 'EM_log_likelihood.png')
 
     # write the inferred results in otu table format
-    write_otu(predicted_mean_rel_abundance, output_dir + 'predicted.tsv', idx2bacteria, id2start_date)
-    write_otu(filtered_mean_rel_abundance, output_dir + 'filtered.tsv', idx2bacteria, id2start_date)
-    write_otu(smoothed_mean_rel_abundance, output_dir + 'smoothed.tsv', idx2bacteria, id2start_date)
+    write_otu(predicted_mean_rel_abundance, output_dir + 'predicted.tsv', idx2bacteria, id2start_date, program_id2file_id)
+    write_otu(filtered_mean_rel_abundance, output_dir + 'filtered.tsv', idx2bacteria, id2start_date, program_id2file_id)
+    write_otu(smoothed_mean_rel_abundance, output_dir + 'smoothed.tsv', idx2bacteria, id2start_date, program_id2file_id)
